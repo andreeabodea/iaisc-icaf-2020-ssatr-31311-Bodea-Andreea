@@ -1,0 +1,72 @@
+/////////////////////////////////////////////////////////////////////////
+////                        sensor                                   ////
+
+sensor
+	real_T H uses H_sensor_driver;
+	real_T M uses M_sensor_driver;
+	real_T L uses L_sensor_driver;
+	real_T Z uses Z_sensor_driver;
+	real_T Q uses Q_sensor_driver;
+
+/////////////////////////////////////////////////////////////////////////
+////                        actuators                                ////
+
+actuator
+	real_T U11 uses control_driver;
+	real_T U12 uses control_driver;
+	real_T U21 uses control_driver;
+	real_T U22 uses control_driver;
+
+/////////////////////////////////////////////////////////////////////////
+////                        output ports                             ////
+
+output
+	c_bool	SG1	:= InitValue;
+	c_bool	SG2	:= InitValue;
+	c_bool	EG1	:= InitValue;
+	c_bool	EG2	:= InitValue;
+	
+
+/////////////////////////////////////////////////////////////////////////
+////                         tasks                                   ////
+
+task	T_DEC(real_T H, real_T M, real_T L, real_T Z) output(SG1, EG1, SG2, EG2) state(){
+	schedule dummy()
+}
+
+task	T_DTC1(real_T H, real_T M, real_T L, real_T Z, real_T Q) output(SG1, EG1, SG2, EG2) state(){
+	schedule dummy()
+}
+
+task	T_DTC2(real_T H, real_T M, real_T L, real_T Z, real_T Q) output(SG1, EG1, SG2, EG2) state(){
+	schedule dummy()
+}
+
+
+/////////////////////////////////////////////////////////////////////////
+////                    actuator drivers                             ////
+
+driver D_G1() output(real_T U11, real_T U12){
+	if constant_true() then dummy()
+}
+driver D_G2() output(real_T U21, real_T U22){
+	if constant_true() then dummy()
+}
+
+
+start control_1 {
+	mode Mode1() period 100{
+		taskfreq 100 do T_DEC(H,M,L,Z);
+	}
+
+	mode Mode2() period 100{
+		taskfreq 10 do T_DEC(H,M,L,Z);
+		taskfreq 10 do T_DTC1(H,M,L,Z);
+	}
+	
+	mode Mode3() period 100{
+		taskfreq 10 do T_DEC(H,M,L,Z);
+		taskfreq 10 do T_DTC1(H,M,L,Z);
+		taskfreq 10 do T_DTC2(H,M,L,Z);
+	}
+}	

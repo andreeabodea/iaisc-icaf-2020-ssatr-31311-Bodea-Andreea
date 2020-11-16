@@ -1,0 +1,272 @@
+/*
+
+ Copyright (c) 2001-2004 The Regents of the University of California.
+ All rights reserved.
+ Permission is hereby granted, without written agreement and without
+ license or royalty fees, to use, copy, modify, and distribute this
+ software and its documentation for any purpose, provided that the above
+ copyright notice and the following two paragraphs appear in all copies
+ of this software.
+
+ IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
+ FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+ ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
+ THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+ THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+ INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE
+ PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+ CALIFORNIA HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ ENHANCEMENTS, OR MODIFICATIONS.
+
+*/
+
+/*
+
+   This is the giottoc grammar written for the parser generator SableCC.
+
+   Author: Christoph Kirsch, cm@eecs.berkeley.edu
+
+*/
+
+Package giotto.giottoc;
+
+Helpers
+
+all = [0 .. 0xFFFF];
+lowercase = ['a' .. 'z'];
+uppercase = ['A' .. 'Z'];
+digit = ['0' .. '9'];
+hex_digit = [digit + [['a' .. 'f'] + ['A' .. 'F']]];
+
+tab = 9;
+cr = 13;
+lf = 10;
+eol = cr lf | cr | lf; // This takes care of different platforms
+
+not_cr_lf = [all -[cr + lf]];
+not_star = [all -'*'];
+not_star_slash = [not_star -'/'];
+
+blank = (' ' | tab | eol)+;
+short_comment = '//' not_cr_lf* eol;
+long_comment = '/*' not_star* '*'+ (not_star_slash not_star* '*'+)* '/';
+comment = short_comment | long_comment;
+
+letter = lowercase | uppercase | '_';
+name = letter (letter | digit)*;
+ident = name ('.' name)*;
+
+Tokens
+
+module = 'module';
+type = 'type';
+is = 'is';
+sensor = 'sensor';
+uses = 'uses';
+actuator = 'actuator';
+output = 'output';
+task = 'task';
+schedule = 'schedule';
+state = 'state';
+driver = 'driver';
+if = 'if';
+then = 'then';
+start = 'start';
+mode = 'mode';
+period = 'period';
+actfreq = 'actfreq';
+do = 'do';
+exitfreq = 'exitfreq';
+taskfreq = 'taskfreq';
+host = 'host';
+address = 'address';
+priorities = 'priorities';
+network = 'network';
+connects = 'connects';
+slots = 'slots';
+push = 'push';
+from = 'from';
+to = 'to';
+in = 'in';
+priority = 'priority';
+wcet = 'wcet';
+
+ident = ident;
+number = digit+;
+
+semicolon = ';';
+comma = ',';
+dot = '.';
+colon = ':';
+
+greater_than = '>';
+less_or_equal = '<=';
+assign = ':=';
+
+l_par = '(';
+r_par = ')';
+l_brace = '{';
+r_brace = '}';
+l_bracket = '[';
+r_bracket = ']';
+
+blank = blank;
+comment = comment;
+
+Ignored Tokens
+
+blank, comment;
+
+Productions
+
+program = [hardware_annotation]:hardware_annotation?
+          module_declaration_sequence?
+          type_declaration_sequence?
+          sensor_declaration_sequence?
+          actuator_declaration_sequence?
+          output_declaration_sequence?
+          [task_declaration_list]:task_declaration*
+          [driver_declaration_list]:driver_declaration*
+          mode_declaration_sequence ;
+
+module_declaration_sequence = module module_declaration_list semicolon ;
+module_declaration_list = {concrete} module_declaration module_declaration_tail* | (module_declaration+) ;
+module_declaration_tail = comma module_declaration ;
+module_declaration = [module_name]:ident ;
+
+qualident = {concrete} ident qualident_tail* | (ident+) ;
+qualident_tail = dot ident ;
+
+type_declaration_sequence = type [type_declaration_list]:type_declaration* ;
+type_declaration = [type_name]:ident is [external_type_name]:qualident semicolon ;
+
+sensor_declaration_sequence = sensor [sensor_declaration_list]:sensor_declaration* ;
+sensor_declaration = [type_name]:ident [port_name]:ident device_driver? [port_annotation]:port_mapping_annotation? semicolon ;
+
+device_driver = uses [device_driver_name]:ident ;
+
+actuator_declaration_sequence = actuator [actuator_declaration_list]:actuator_declaration* ;
+actuator_declaration = [type_name]:ident [port_name]:ident device_driver? [port_annotation]:port_mapping_annotation? semicolon ;
+
+output_declaration_sequence = output [output_declaration_list]:output_declaration* ;
+output_declaration = [type_name]:ident [port_name]:ident assign [initialization_driver]:ident semicolon ;
+
+task_declaration = task [task_name]:ident [input_ports]:formal_ports output [output_ports]:actual_ports state [state_ports]:state_ports
+                   [task_wcet_annotation]:task_wcet_annotation?
+                   l_brace schedule_task [task_timing_annotation]:task_timing_annotation? r_brace ;
+
+formal_ports = l_par formal_port_list? r_par ;
+formal_port_list = {concrete} formal_port formal_port_tail* | (formal_port+) ;
+formal_port_tail = comma formal_port ;
+formal_port = [type_name]:ident [port_name]:ident ;
+
+actual_ports = l_par actual_port_list? r_par ;
+actual_port_list = {concrete} actual_port actual_port_tail* | (actual_port+) ;
+actual_port_tail = comma actual_port ;
+actual_port = [port_name]:ident ;
+
+state_ports = l_par state_port_list? r_par ;
+state_port_list = {concrete} state_port state_port_tail* | (state_port+) ;
+state_port_tail = comma state_port ;
+state_port = [type_name]:ident [port_name]:ident assign [initialization_driver]:ident ;
+
+schedule_task = schedule [task_implementation]:ident [task_parameters]:actual_scoped_parameters ;
+
+actual_scoped_parameters = l_par actual_scoped_parameter_list? r_par ;
+actual_scoped_parameter_list = {concrete} actual_scoped_parameter actual_scoped_parameter_tail* | (actual_scoped_parameter+) ;
+actual_scoped_parameter_tail = comma actual_scoped_parameter ;
+actual_scoped_parameter = [parameter_name]:ident ;
+
+driver_declaration = driver [driver_name]:ident [source_ports]:actual_ports output [destination_ports]:formal_ports
+                     l_brace call_driver r_brace ;
+
+call_driver = if [guard_implementation]:ident guard_parameters then
+              [driver_implementation]:ident [driver_parameters]:actual_scoped_parameters ;
+
+guard_parameters = actual_scoped_parameters ;
+
+mode_declaration_sequence = start [mode_name]:ident l_brace [mode_declaration_list]:mode_declaration* r_brace ;
+mode_declaration = mode [mode_name]:ident [mode_ports]:actual_ports period [mode_period]:number
+                   [mode_annotation]:network_timeslot_annotation? l_brace
+                   [actuator_update_list]:actuator_update*
+                   [mode_connection_annotation]:mode_connection_annotation?
+                   [mode_switch_list]:mode_switch*
+                   [task_invocation_list]:task_invocation*
+                   r_brace ;
+
+actuator_update = actfreq [actuator_frequency]:number do [actuator_port_name]:ident l_par [driver_name]:ident r_par semicolon ;
+
+mode_switch = exitfreq [mode_switch_frequency]:number do [mode_name]:ident l_par [driver_name]:ident r_par
+              [mode_switch_annotation]:mode_switch_annotation? semicolon ;
+
+task_invocation = taskfreq [task_frequency]:number do [task_name]:ident l_par [driver_name]:ident? r_par
+                  [task_annotation]:task_annotation? semicolon ;
+
+// Annotations
+
+hardware_annotation = l_bracket hardware_declaration_list r_bracket ;
+
+hardware_declaration_list = {concrete} hardware_declaration hardware_declaration_tail* | (hardware_declaration+) ;
+hardware_declaration_tail = semicolon hardware_declaration ;
+hardware_declaration = {host} host_declaration | {network} network_declaration ;
+
+host_declaration = host [host_name]:ident address [host_i_p]:i_p colon [host_port]:number host_priorities? ;
+host_priorities = priorities priority_list ;
+
+i_p = [octet1]:number [dot1]:dot [octet2]:number [dot2]:dot [octet3]:number [dot3]:dot [octet4]:number ;
+
+priority_list = {concrete} priority_prod priority_tail* | (priority_prod+) ;
+priority_tail = greater_than priority_prod ;
+priority_prod = [priority_name]:ident ;
+
+network_declaration = network [network_name]:ident address [network_i_p]:i_p network_connection? ;
+network_connection = connects [host_name]:host_name_ident comma host_list ;
+host_name_ident = ident ;
+
+host_list = {concrete} host_name_ident host_tail* | (host_name_ident+) ;
+host_tail = comma host_name_ident ;
+
+port_mapping_annotation = l_bracket host [host_name]:host_name_ident r_bracket ;
+
+network_timeslot_annotation = l_bracket network_timeslot_declaration_list r_bracket ;
+network_timeslot_declaration_list = {concrete} network_timeslot_declaration network_timeslot_declaration_tail* |
+                                    (network_timeslot_declaration+) ;
+network_timeslot_declaration_tail = semicolon network_timeslot_declaration ;
+network_timeslot_declaration = network [network_name]:network_name_ident slots timeslot_declaration_list ;
+network_name_ident = ident ;
+
+timeslot_declaration_list = {concrete} timeslot_declaration timeslot_declaration_tail* | (timeslot_declaration+) ;
+timeslot_declaration_tail = comma timeslot_declaration ;
+timeslot_declaration = [timeslot_name]:ident l_par [start_time]:number comma [end_time]:number r_par ;
+
+mode_connection_annotation = l_bracket host [host_name]:host_name_ident semicolon
+                             [schedule_connection_list]:schedule_connection_list? r_bracket ;
+schedule_connection_list = {concrete} schedule_connection schedule_connection_tail* | (schedule_connection+) ;
+schedule_connection_tail = semicolon schedule_connection ;
+schedule_connection = push [push_ports]:actual_global_parameters destinations? network_timeslots? ;
+
+destinations = to l_par [destination_names]:host_list r_par ;
+network_timeslots = in [network_name]:network_name_ident slots timeslot_list ;
+
+timeslot_list = {concrete} timeslot timeslot_tail* | (timeslot+) ;
+timeslot_tail = comma timeslot ;
+timeslot = [timeslot_name]:ident ;
+
+actual_global_parameters = l_par actual_global_parameter_list r_par ;
+actual_global_parameter_list = {concrete} actual_global_parameter actual_global_parameter_tail* | (actual_global_parameter+) ;
+actual_global_parameter_tail = comma actual_global_parameter ;
+actual_global_parameter = [parameter_name]:ident ;
+
+mode_switch_annotation = l_bracket host [host_name]:host_name_ident semicolon
+                         [schedule_connection_list]:schedule_connection_list? r_bracket ;
+
+task_annotation = l_bracket host [host_name]:host_name_ident task_priority? semicolon
+                  [schedule_connection_list]:schedule_connection_list? r_bracket ;
+task_priority = priority [priority_name]:ident ;
+
+task_wcet_annotation = l_bracket wcet [time]:number r_bracket ;
+
+task_timing_annotation = l_bracket [start]:number less_or_equal [end]:number r_bracket ;

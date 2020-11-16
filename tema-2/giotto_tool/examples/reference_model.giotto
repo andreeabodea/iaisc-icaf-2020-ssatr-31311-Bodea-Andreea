@@ -1,0 +1,117 @@
+/*
+
+ Copyright (c) 2001-2004 The Regents of the University of California.
+ All rights reserved.
+
+ Permission is hereby granted, without written agreement and without
+ license or royalty fees, to use, copy, modify, and distribute this
+ software and its documentation for any purpose, provided that the above
+ copyright notice and the following two paragraphs appear in all copies
+ of this software.
+
+ IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
+ FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+ ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
+ THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+ SUCH DAMAGE.
+
+ THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+ INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE
+ PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+ CALIFORNIA HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ ENHANCEMENTS, OR MODIFICATIONS.
+
+ GIOTTO_COPYRIGHT_VERSION_2
+ COPYRIGHTENDKEY
+*/
+
+/**
+
+@author Christoph Kirsch
+@version reference_model.giotto,v 1.3 2004/09/29 01:04:38 cxh Exp
+@since Giotto 1.0.1
+*/
+
+// Sensor ports
+
+sensor
+
+real_T motor_current uses motor_current_device_driver;
+real_T throttle_position uses throttle_position_device_driver;
+real_T user_mode uses user_mode_device_driver;
+real_T pedal_position uses pedal_position_device_driver;
+
+// Actuator ports
+
+actuator
+
+real_T throttle_motor uses throttle_motor_device_driver;
+
+// Task output ports
+
+output
+
+real_T monitor_output_1 := monitor_output_1_init_driver;
+real_T manager_output_1 := manager_output_1_init_driver;
+real_T controller_output_1 := controller_output_1_init_driver;
+
+// Task declarations
+
+task monitor(real_T monitor_input_1, real_T monitor_input_2, real_T monitor_input_3, real_T monitor_input_4)
+     output (monitor_output_1) state () {
+  schedule monitor()
+}
+
+task manager(real_T manager_input_1, real_T manager_input_2)
+     output (manager_output_1) state () {
+  schedule manager()
+}
+
+task controller(real_T controller_input_1, real_T controller_input_2, real_T controller_input_3)
+     output (controller_output_1) state () {
+  schedule controller()
+}
+
+// Driver declarations
+
+// Input driver for monitor task
+
+driver monitor_input_driver(controller_output_1, motor_current, throttle_position, manager_output_1)
+       output (real_T monitor_input_1, real_T monitor_input_2, real_T monitor_input_3, real_T monitor_input_4) {
+  if c_true() then monitor_input_driver()
+}
+
+// Input driver for manager task
+
+driver manager_input_driver(user_mode, monitor_output_1)
+       output (real_T manager_input_1, real_T manager_input_2) {
+  if c_true() then manager_input_driver()
+}
+
+// Input driver for controller task
+
+driver controller_input_driver(manager_output_1, throttle_position, pedal_position)
+       output (real_T controller_input_1, real_T controller_input_2, real_T controller_input_3) {
+  if c_true() then controller_input_driver()
+}
+
+// Actuator driver for throttle_motor
+
+driver throttle_motor_actuator_driver(controller_output_1)
+       output (real_T throttle_motor_input) {
+  if c_true() then throttle_motor_actuator_driver()
+}
+
+// Mode declarations
+
+start mode1 {
+
+  mode mode1() period 30 {
+    actfreq 1 do throttle_motor(throttle_motor_actuator_driver);
+
+    taskfreq  1 do monitor(monitor_input_driver);
+    taskfreq  2 do manager(manager_input_driver);
+    taskfreq 30 do controller(controller_input_driver);
+  }
+}

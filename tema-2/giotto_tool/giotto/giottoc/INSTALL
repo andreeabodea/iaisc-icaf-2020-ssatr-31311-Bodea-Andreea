@@ -1,0 +1,215 @@
+This is the INSTALL file for giottoc.
+
+1. If you do not have Java (Version 1.3.1) already installed,
+you can download the Java Development Kit (JDK) 1.3.1 from:
+
+   http://java.sun.com/j2se/1.3
+
+Please follow the instructions on how to install the JDK given on this
+page.
+
+2. Assuming that JDK denotes the absolute path to the root directory
+of your Java installation, set your PATH variable as follows:
+
+        setenv PATH JDK/bin:$PATH
+
+   if you use tcsh, or:
+
+        export PATH=JDK/bin:$PATH
+
+   if you use bash.
+
+3. Change to a directory of your choice, say, HOME, and make a
+directory called 'giottoc-0.4' (assuming that HOME denotes the
+absolute path):
+
+        cd HOME
+        mkdir giottoc-0.4
+
+4. Download the gzipped tar archive giottoc.0.4.tar.gz into
+'HOME/giottoc-0.4'.
+
+5. Unpack the distribution:
+
+        cd HOME/giottoc-0.4
+        gzip -dc giottoc.0.4.tar.gz | tar xf -
+
+   This will create a directory tree HOME/giottoc-0.4/giottoc/
+
+7. Run the example Giotto program in
+HOME/giottoc-0.4/giottoc/examples/control.giotto
+
+        cd HOME/giottoc-0.4/giottoc
+        make run
+
+It is important to execute giottoc from the directory
+HOME/giottoc-0.4/giottoc.  In order to compile the example Giotto
+program without executing it run 'make compile'.  The generated code
+will be stored into the directories
+HOME/giottoc-0.4/giottoc/examples/ftable and
+HOME/giottoc-0.4/giottoc/examples/ecode.  The implementation of the
+functionality can be found in the directory
+HOME/giottoc-0.4/giottoc/examples/fcode.  If you run 'make emachine'
+the target machine and the generated code will be compiled and linked.
+To execute the machine run 'make run'.
+
+----------------------------------------------------------------------
+
+Distributed version:
+
+giottoc 0.4 can also compile towards distributed target machines.
+The implementation is based on BSD sockets.  Before you can run it you
+need to provide IP addresses and port numbers for the host machines on
+which you would like to run the Giotto program.
+
+1. Edit HOME/giottoc-0.4/giottoc/examples/control.giotto.  Look for:
+
+[ host HeliControl address 128.32.171.248:49153;
+  host HeliNavigation address 128.32.171.237:49154;
+  host HeliEmpty address 128.32.171.244:49155 ]
+
+This is called a Giotto hardware annotation.  It tells giottoc that we
+have three hosts called HeliControl, HeliNavigation, and HeliEmpty.
+It also specifies the IP addresses of the host machines.  The number
+right after an IP address, e.g., 49153 must be the number of a free
+port.  49152 is reserved in our implementation for the clock
+synchronization signal of the host machines.  So, take anything
+between 49153 and 65535.  Search the rest of the Giotto program for
+occurrences of the host names to see how we map sensor and actuator
+ports as well as task invocations onto hosts.
+
+2. To compile the demo try:
+
+        cd HOME/giottoc-0.4/giottoc
+        touch examples/control.giotto
+        make emachine GIOTTOCFLAGS=-annotated
+
+Now, giottoc produces distributed code according to the annotation in
+the Giotto program.  The resulting binary contains the code for all
+hosts.  In order to determine the host we use numbers between 0 and
+number_of_hosts minus one.
+
+3. Try:
+
+        ./e-machine 0
+
+This will execute the E code of the first host.  Similarly,
+'./e-machine 1' and './e-machine 2' will execute the E code of the
+other hosts.
+
+4. In order to execute them concurrently and distributed, try:
+
+        cd HOME/giottoc-0.4/giottoc
+        touch examples/control.giotto
+        make emachine GIOTTOCFLAGS=-annotated DISTRIBUTED=1
+
+5. To run the distributed demo, try in exactly the same order as below
+(on the correct hosts):
+
+        HeliControl:    ./e-machine 0
+        HeliNavigation: ./e-machine 1
+        HeliEmpty:      ./e-machine 2
+
+After starting './e-machine 2' all hosts should start simultaneously
+and exhibit exactly the same behavior as in the non-distributed
+version.  Press the Return key of HeliNavigation to initiate a mode
+switch across all hosts!
+
+----------------------------------------------------------------------
+
+Dynamic Giotto:
+
+The following demo shows that the scheduling code produced by giottoc
+is fully portable and mobile code.  We call the scheduling code
+produced by giottoc 'E code' because it is executed by a virtual
+machine called the embedded machine or for short E machine.  We have
+implemented a version of the E machine that supports dynamic uploading
+and linking of E code.
+
+1. To compile the demo, try:
+
+        cd HOME/giottoc-0.4/giottoc
+        touch examples/normal.giotto
+        make emachine uploader EXAMPLE=examples/normal.giotto GIOTTOCFLAGS=-dynamic DYNAMIC=1
+
+This compiles the Giotto program 'normal.giotto', which is the same as
+the previous Giotto program except that the second mode 'degraded' is
+missing.  Thus any mode switch to 'degraded' is undefined.
+
+2. Then start the E machine:
+
+        ./e-machine
+
+If you get 'os_pipe_create: create pipe error, errno: 0: Success', try
+it again.  The E machine will now wait for incoming E code.  So far,
+the machine only knows the functionality code of the Giotto program
+(dynamic linking of functionality code is not part of the demo).
+
+3. In a different shell, try:
+
+        ./up-loader normal.b
+
+This will upload the E code in the file 'normal.b' encoded in binary
+format to the machine, which will link it and then execute it.  Note
+that the contents of 'normal.b' is equivalent to the file
+'examples/ecode/e_code.b'.
+
+4. Press the Return key.
+
+The machine will report that it cannot switch to an undefined address.
+In fact, this is the address of the undefined mode 'degraded'.  In
+order to get the E code for the degraded mode on the machine we have
+prepared E code in the file 'degraded.b' that has been generated from
+the Giotto program 'examples/degraded.giotto'.  This program is
+equivalent to 'normal.b' except that it defines a mode 'degraded'
+rather than 'normal'.
+
+5. To get the E code on the machine, try:
+
+        ./up-loader degraded.b
+
+6. Now, press the Return key.
+
+The mode switch will now succeed.  Pressing Return multiple times will
+toggle modes as before.  Uploading the E code in the reverse order
+also works, try it!
+
+----------------------------------------------------------------------
+
+Windows:
+
+The single CPU part of giottoc-0.4 runs also under Windows.  A cygwin
+shell as well as the mingw32 and pthreads packages are required.  Get
+them from:
+
+- cygwin: http://sources.redhat.com/cygwin/
+
+- mingw32: http://www.mingw.org/download.shtml, take MinGW-1.1.tar.gz
+
+- pthreads: http://sources.redhat.com/pthreads-win32/
+
+and install them in that order.
+
+Then try:
+
+        cd HOME/giottoc-0.4/giottoc
+        make run WINDOWS=1
+
+----------------------------------------------------------------------
+
+OSEKWorks:
+
+OSEKWorks is a real-time operating system for the automotive sector.
+We have tested the current (single CPU) version of the embedded
+machine on an MPC 555 processor board.
+
+----------------------------------------------------------------------
+
+VxWorks:
+
+Support for VxWorks will be available in one of the next releases.
+
+----------------------------------------------------------------------
+
+If you have more questions send email to:
+Christoph Kirsch, cm@eecs.berkeley.edu

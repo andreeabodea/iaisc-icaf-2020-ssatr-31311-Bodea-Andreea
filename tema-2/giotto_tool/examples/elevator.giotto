@@ -1,0 +1,150 @@
+/* A simple giotto program controlling an elevator.
+
+Copyright (c) 2004 The Regents of the University of California.
+All rights reserved.
+
+Permission is hereby granted, without written agreement and without
+license or royalty fees, to use, copy, modify, and distribute this
+software and its documentation for any purpose, provided that the above
+copyright notice and the following two paragraphs appear in all copies
+of this software.
+
+IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY
+FOR DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES
+ARISING OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF
+THE UNIVERSITY OF CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF
+SUCH DAMAGE.
+
+THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE
+PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND THE UNIVERSITY OF
+CALIFORNIA HAS NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ENHANCEMENTS, OR MODIFICATIONS.
+*/
+
+//////////////////////////////////////////////////////////////////////////
+//// Elevator: elevator.giotto
+/**
+A basic Giotto program for controlling a 1 degree of freedom elevator.
+The elevator cotnroller moves the elvator up/down in order to reach
+the requested floors. Once a floor with a request is reached the elevator
+stops and the dors are open.
+
+@author M.A.A. Sanvido
+@version elevator.giotto,v 1.7 2004/09/28 23:04:30 cxh Exp
+@since Giotto 1.0.1
+*/
+
+
+[ host Control    address 128.32.33.84:41254;
+  host Computation address 128.32.33.84:41255]
+
+sensor
+   PortButtons  buttons  uses GetButtons  [ host Control ];
+   PortPosition position uses GetPosition [ host Control ];
+
+actuator
+   PortMove     motion  uses PutMoveMotor [ host Control ];
+   PortDoor     door    uses PutDoorMotor [ host Control ];
+
+output
+   PortMove     tmotion := InitPortMove;
+   PortDoor     tdoor   := InitPortDoor;
+   bool_port    openwin := Elevator;   // used to open the frame
+
+task Idle(PortButtons b) output (tmotion, tdoor) state () {
+   schedule TaskIdle(b, tmotion, tdoor)
+}
+
+task Up(PortButtons b) output (tmotion, tdoor) state () {
+   schedule TaskUp(b, tmotion, tdoor)
+}
+
+task Down(PortButtons b) output (tmotion, tdoor) state () {
+   schedule TaskDown(b, tmotion, tdoor)
+}
+
+task Open(PortButtons b) output (tmotion, tdoor) state () {
+   schedule TaskOpen(b, tmotion, tdoor)
+}
+
+task Close(PortButtons b) output (tmotion, tdoor) state () {
+   schedule TaskClose(b, tmotion, tdoor)
+}
+
+// Actuator driver
+
+driver Move(tmotion) output (PortMove m) {
+  if constant_true() then copy_PortMove(tmotion, m)
+}
+
+driver Door(tdoor) output (PortDoor d) {
+  if constant_true() then copy_PortDoor(tdoor, d)
+}
+
+// Input driver
+driver getButtons (buttons) output (PortButtons b) {
+  if constant_true() then copy_PortButtons(buttons, b)
+}
+
+// Mode switch driver
+driver PGTC(buttons, position) output () {
+   if CondPosGTCall(buttons, position) then dummy()
+}
+
+driver PLTC(buttons, position) output () {
+   if CondPosLTCall(buttons, position) then dummy()
+}
+
+driver PEQC(buttons, position) output () {
+   if CondPosEQCall(buttons, position) then dummy()
+}
+driver True() output () {
+   if constant_true() then dummy()
+}
+
+start idle {
+
+        mode idle() period 500 {
+                actfreq 1 do motion(Move);
+                actfreq 1 do door(Door);
+                [ host Computation; ]
+                exitfreq 1 do up(PLTC)          [ host Computation; ];
+                exitfreq 1 do down(PGTC)        [ host Computation; ];
+                exitfreq 1 do open(PEQC)        [ host Computation; ];
+                taskfreq 1 do Idle(getButtons)  [ host Computation; ];
+        }
+
+        mode up() period 500 {
+                actfreq 1 do motion(Move);
+                actfreq 1 do door(Door);
+                [ host Computation; ]
+                exitfreq 1 do open(PEQC)        [ host Computation; ];
+                taskfreq 1 do Up(getButtons)    [ host Computation; ];
+        }
+
+        mode down() period 500 {
+                actfreq 1 do motion(Move);
+                actfreq 1 do door(Door);
+                [ host Computation; ]
+                exitfreq 1 do open(PEQC)        [ host Computation; ];
+                taskfreq 1 do Down(getButtons)  [ host Computation; ];
+        }
+
+        mode open() period 500 {
+                actfreq 1 do motion(Move);
+                actfreq 1 do door(Door);
+                [ host Computation; ]
+                exitfreq 1 do close(True)       [ host Computation; ];
+                taskfreq 1 do Open(getButtons)  [ host Computation; ];
+        }
+
+        mode close() period 500 {
+                actfreq 1 do motion(Move);
+                actfreq 1 do door(Door);
+                [ host Computation; ]
+                exitfreq 1 do idle(True)        [ host Computation; ];
+                taskfreq 1 do Close(getButtons) [ host Computation; ];
+        }
+}

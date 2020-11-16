@@ -1,0 +1,63 @@
+
+//sensor for reading the level of the lake
+sensor
+	PortLevel	level	uses	GetLevel;
+	PortValvePosition	valvep	uses GetValvePosition;
+
+//actuators for controlling the motor and the valve 
+actuator
+	PortValve	valve	uses	PutSwitchValve;
+
+output
+	PortValve	svalve	:= InitValve;
+	
+
+//task list
+task	T_Level(PortLevel l) output(svalve) state(){
+	schedule LevelTaskCode(l,svalve)
+}
+
+task	T_Generator() output() state(){
+	schedule GeneratorTaskCode()
+}
+
+//actuator drivers
+driver D_ValveSwitch(svalve) output(PortValve v){
+	if constant_true() then copy_PortValve(svalve,v)
+}
+
+//sensor drivers
+driver D_GetLevel(level) output (PortLevel l){
+	if constant_true() then copy_PortLevel(level,l)
+}
+
+driver D_GetValvePosition(valvep) output (PortLevel vp){
+	if constant_true() then copy_PortValvePosition(valvep,vp)
+}
+
+//mode switch drivers
+driver CTL_1(valvep) output(){
+ if CondCtl1(valvep) then dummy()	
+}
+
+driver CTL_2(valvep) output(){
+ if CondCtl2(valvep) then dummy()
+}
+
+
+start control_1 {
+	mode control_1() period 1000{
+
+		actfreq 1 do valve(D_ValveSwitch);		
+		exitfreq 1 do control_2(CTL_2);
+		taskfreq 1 do T_Level(D_GetLevel);
+
+	}
+
+	mode control_2() period 1000{
+		actfreq 1 do valve(D_ValveSwitch);
+		exitfreq 1 do control_1(CTL_1);
+		taskfreq 1 do T_Level(D_GetLevel);
+		taskfreq 2 do T_Generator();
+	}
+}	
